@@ -15,16 +15,11 @@ params.echo = false
 params.keepBg = false
 params.level = -1
 params.bioformats2ometiff = true
-params.synapseconfig = false
 params.watch_file = false
 
 heStory = 'https://gist.githubusercontent.com/adamjtaylor/3494d806563d71c34c3ab45d75794dde/raw/d72e922bc8be3298ebe8717ad2b95eef26e0837b/unscaled.story.json'
 heScript = 'https://gist.githubusercontent.com/adamjtaylor/bbadf5aa4beef9aa1d1a50d76e2c5bec/raw/1f6e79ab94419e27988777343fa2c345a18c5b1b/fix_he_exhibit.py'
 minerva_description_script = 'https://gist.githubusercontent.com/adamjtaylor/e51873a801fee39f1f1efa978e2b5e44/raw/c03d0e09ec58e4c391f5ce4ca4183abca790f2a2/inject_description.py'
-
-if (params.synapseconfig != false){
-  synapseconfig = file(params.synapseconfig)
-}
 
 if(params.keepBg == false) { 
   remove_bg = true
@@ -103,48 +98,6 @@ input_csv_branch.other
     .map { it -> tuple(it.simpleName, it)}
     .set {files}
 
-
-process synapse_get {
-  label "process_low"
-  echo params.echo
-  when:
-    params.synapseconfig != false
-  input:
-    val synid from synids_toget
-    file synapseconfig from synapseconfig
-  output:
-    set synid, file('*') into syn_out
-  stub:
-  """
-  touch "test.tif"
-  """
-  script:
-    """
-    echo "synapse -c $synapseconfig get $synid"
-    synapse -c $synapseconfig get $synid
-    """
-}
-
-process get_annotations {
-  label "process_low"
-  echo params.echo
-  publishDir "$params.outdir/$workflow.runName", saveAs: {filename -> "${synid}/$workflow.runName/annotations.json"}
-  input:
-    val synid from synids_togetannotations
-    file synapseconfig from synapseconfig
-  output:
-    file 'annotations.json'
-  stub:
-  """
-  touch "annotations.json"
-  """
-  script:
-    """
-    echo "synapse -c $synapseconfig get-annotations --id $synid"
-    synapse -c $synapseconfig get-annotations --id $synid > annotations.json
-    """
-}
-
 files
   .mix(syn_out)
   .branch {
@@ -220,7 +173,6 @@ process render_pyramid{
     params.minerva == true || params.all == true
   input:
     set synid, file(story), file(ome) from ome_pyramid_ch
-    file synapseconfig from synapseconfig
   output:
     file 'minerva'
   stub:
@@ -236,15 +188,11 @@ process render_pyramid{
     cp /index.html minerva
     wget -O fix_he_exhibit.py $heScript
     python3 fix_he_exhibit.py minerva/exhibit.json
-    wget -O inject_description.py $minerva_description_script
-    python3 inject_description.py minerva/exhibit.json -synid$synid --synapseconfig $synapseconfig
     """
   else
     """
     python3  /minerva-author/src/save_exhibit_pyramid.py $ome $story 'minerva'
     cp /index.html minerva
-    wget -O inject_description.py $minerva_description_script
-    python3 inject_description.py minerva/exhibit.json --synid $synid --output minerva/exhibit.json --synapseconfig $synapseconfig
   """
 }
 
