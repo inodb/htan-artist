@@ -7,7 +7,6 @@ params.miniature = false
 params.metadata = false
 params.he = false
 params.input_csv = false
-params.input_synid = false
 params.input_path = false
 params.watch_path = false
 params.watch_csv = false
@@ -38,16 +37,6 @@ if (params.input_csv != false) {
   } else {
     Channel.empty().set{input_csv}
   }
-
-
-// A channel to take a single imput synid
-if (params.input_synid != false) {
-    Channel
-        .of(params.input_synid)
-        .set {input_synid}
-} else {
-    Channel.empty().set{input_synid}
-}
 
 // Channel taking a single input_path (works with wildcards)
 if (params.input_path != false) {
@@ -86,11 +75,6 @@ input_csv
     }
     .set { input_csv_branch }
 
-// Mix the synids
-input_synid
-    .mix(input_csv_branch.syn)
-    .into {synids_toget; synids_togetannotations}
-
 // Mix the files
 input_csv_branch.other
     .map { it -> file(it) }
@@ -99,7 +83,6 @@ input_csv_branch.other
     .set {files}
 
 files
-  .mix(syn_out)
   .branch {
       ome: it[1] =~ /.+\.ome\.tif{1,2}$/ || params.bioformats2ometiff == false
       other: true
